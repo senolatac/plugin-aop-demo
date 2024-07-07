@@ -5,6 +5,7 @@ import com.example.demo_plugin_aop.annotation.PreModifyRequestProcess;
 import com.example.demo_plugin_aop.extension.ExtensionManager;
 import com.example.demo_plugin_aop.utils.GsonUtils;
 import com.example.demo_plugin_aop.utils.MethodUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.MethodParameter;
@@ -20,6 +21,7 @@ import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.util.Enumeration;
 import java.util.List;
 
 //https://www.baeldung.com/spring-boot-change-request-body-before-controller
@@ -29,6 +31,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExtensionRequestBodyAspect implements RequestBodyAdvice {
     private final ExtensionManager extensionManager;
+    private final HttpServletRequest httpServletRequest;
 
     @Override
     public boolean supports(MethodParameter methodParameter, Type targetType, Class<? extends HttpMessageConverter<?>> converterType) {
@@ -38,6 +41,7 @@ public class ExtensionRequestBodyAspect implements RequestBodyAdvice {
 
     @Override
     public HttpInputMessage beforeBodyRead(HttpInputMessage inputMessage, MethodParameter parameter, Type targetType, Class<? extends HttpMessageConverter<?>> converterType) throws IOException {
+        printRequestDetails();
         Extendable extendable = parameter.getMethodAnnotation(Extendable.class);
         Object extensionBean = extensionManager.getBeanByExtensionId(extendable.id());
         if (extensionBean == null) {
@@ -54,6 +58,16 @@ public class ExtensionRequestBodyAspect implements RequestBodyAdvice {
     @Override
     public Object handleEmptyBody(Object body, HttpInputMessage inputMessage, MethodParameter parameter, Type targetType, Class<? extends HttpMessageConverter<?>> converterType) {
         return body;
+    }
+
+    private void printRequestDetails() {
+        Enumeration<String> headers = httpServletRequest.getHeaderNames();
+
+        headers.asIterator().forEachRemaining(header -> {
+            log.debug("Header key=value {}={}", header, httpServletRequest.getHeader(header));
+        });
+
+        log.debug("Request query detail: {}", httpServletRequest.getQueryString());
     }
 
     private HttpInputMessage callExtensionPreProcess(HttpInputMessage inputMessage, Object extensionBean) throws IOException {
